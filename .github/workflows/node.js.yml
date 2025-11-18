@@ -24,7 +24,7 @@ jobs:
         uses: grafana/run-k6-action@v1
         with:
           path: src/tests/Tests.spec.js
-          flags: --out json=src/output/results.json --out dashboard=src/output/dashboard.html
+          flags: --out json=src/output/results.json --out web-dashboard=src/output/dashboard.html
 
       - name: Upload dos Relatórios
         if: always()
