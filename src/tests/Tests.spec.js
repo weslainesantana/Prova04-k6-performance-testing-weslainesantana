@@ -1,50 +1,50 @@
 import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporter/latest/dist/bundle.js';
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 
-export const getContactsDuration = new Trend('get_contacts', true);
-export const RateContentOK = new Rate('content_OK');
+export const getDurationTrend = new Trend('get_duration_trend', true);
+export const statusCodeRate = new Rate('status_code_rate');
 
 export const options = {
   thresholds: {
-    http_req_failed: ['rate<0.30'],
-    get_contacts: ['p(99)<500'],
-    content_OK: ['rate>0.95']
+    http_req_failed: ['rate<0.25'],
+    http_req_duration: ['p(90)<6800'],
+    status_code_rate: ['rate>0.75'],
   },
   stages: [
-    { duration: '10s', target: 2 },
-    { duration: '10s', target: 4 },
-    { duration: '10s', target: 6 }
-  ]
+    { duration: '30s', target: 7 },
+    { duration: '2m', target: 92 },
+    { duration: '1m', target: 0 },
+  ],
 };
 
 export function handleSummary(data) {
   return {
     './src/output/index.html': htmlReport(data),
-    stdout: textSummary(data, { indent: ' ', enableColors: true })
+    stdout: textSummary(data, { indent: ' ', enableColors: true }),
   };
 }
 
 export default function () {
-  const baseUrl = 'https://test.k6.io/';
+  const base = 'https://test-api.k6.io/public/crocodiles/';
+  const cfg = { headers: { 'Content-Type': 'application/json' } };
 
-  const params = {
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  };
+  const res = http.get(base, cfg);
 
-  const OK = 200;
+  getDurationTrend.add(res.timings.duration);
 
-  const res = http.get(`${baseUrl}`, params);
+  if (res.status !== 200) {
+    console.log(`Falha na requisição: ${res.status}`);
+  }
 
-  getContactsDuration.add(res.timings.duration);
-
-  RateContentOK.add(res.status === OK);
+  const okStatus = res.status === 200;
+  statusCodeRate.add(okStatus);
 
   check(res, {
-    'GET Contacts - Status 200': () => res.status === OK
+    'status é 200': () => okStatus,
   });
+
+  sleep(1);
 }
